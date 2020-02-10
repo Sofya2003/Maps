@@ -1,0 +1,90 @@
+import os
+import sys
+
+import requests
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import *
+
+SCREEN_SIZE = [600, 450]
+
+
+class Example(QWidget):
+    def __init__(self):
+        print('Ведите координаты через пробел')
+        self.cor = input()
+        print('Введите маштаб в %')
+        print('Больше маштаб - лучще видно карту.')
+        self.mash = input()
+        self.check()
+        super().__init__()
+        self.getImage()
+
+    def check(self):
+        self.cor = ','.join(self.cor.split())
+        self.mash = float(self.mash) * 0.02 / 100
+        self.mash = str(self.mash) + ',' + str(self.mash)
+        #37.530887 55.703118
+        #0.002,0.002
+
+    def getImage(self, style='map'):
+        map_request = "http://static-maps.yandex.ru/1.x/?ll=" + self.cor + "&spn=" + self.mash + "&l=" + style
+        response = requests.get(map_request)
+
+        if not response:
+            print("Ошибка выполнения запроса:")
+            print(map_request)
+            print("Http статус:", response.status_code, "(", response.reason, ")")
+            sys.exit(1)
+
+        # Запишем полученное изображение в файл.
+        self.map_file = "map.png"
+        with open(self.map_file, "wb") as file:
+            file.write(response.content)
+        self.initUI()
+
+    def initUI(self):
+        self.setGeometry(100, 100, *SCREEN_SIZE)
+        self.setWindowTitle('Отображение карты')
+
+        ## Изображение
+        self.pixmap = QPixmap(self.map_file)
+        self.image = QLabel(self)
+        self.image.move(0, 35)
+        self.image.resize(635, 450)
+        self.image.setPixmap(self.pixmap)
+
+        self.map = QRadioButton('Карта', self)
+        self.map.move(20, 10)
+        self.map.setChecked(True)
+
+        self.sput = QRadioButton('Спутник', self)
+        self.sput.move(220, 10)
+
+        self.gib = QRadioButton('Гибрид', self)
+        self.gib.move(430, 10)
+
+        self.button_group = QButtonGroup()
+        self.button_group.addButton(self.map)
+        self.button_group.addButton(self.sput)
+        self.button_group.addButton(self.gib)
+        self.button_group.buttonClicked.connect(self.how)
+
+    def how(self, button):
+        a = button.text()
+        if a == 'Карта':
+            style = 'map'
+        elif a == 'Спутник':
+            style = 'sat'
+        elif a == 'Гибрид':
+            style = 'sat,skl'
+        self.getImage(style)
+
+    def closeEvent(self, event):
+        """При закрытии формы подчищаем за собой"""
+        os.remove(self.map_file)
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = Example()
+    ex.show()
+    sys.exit(app.exec())
